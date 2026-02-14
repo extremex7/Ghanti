@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "title": "Education for All",
+    "description": "Ensure free quality education up to college level for every citizen.",
+    "candidateIds": [1, 2]
+  },
+  {
+    "id": 2,
+    "title": "Healthcare Access",
+    "description": "Provide affordable healthcare facilities in every district.",
+    "candidateIds": [1]
+  },
+  {
+    "id": 3,
+    "title": "Green Energy",
+    "description": "Promote solar, wind, and hydro energy to reduce carbon emissions.",
+    "candidateIds": [2]
+  }
+]

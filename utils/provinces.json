@@ -1,0 +1,9 @@
+[
+  { "name": "Province 1", "districts": ["Jhapa", "Morang", "Sunsari"] },
+  { "name": "Province 2", "districts": ["Saptari", "Siraha", "Dhanusha"] },
+  { "name": "Bagmati", "districts": ["Kathmandu", "Lalitpur", "Bhaktapur"] },
+  { "name": "Gandaki", "districts": ["Pokhara", "Kaski", "Tanahun"] },
+  { "name": "Province 5", "districts": ["Banke", "Bardiya", "Dang"] },
+  { "name": "Karnali", "districts": ["Surkhet", "Jumla", "Dolpa"] },
+  { "name": "Sudurpashchim", "districts": ["Doti", "Kailali", "Bajhang"] }
+]
