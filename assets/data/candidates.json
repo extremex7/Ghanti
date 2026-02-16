@@ -78,7 +78,7 @@
     "district": "Dhading",
     "constituency": "Dhading-1",
     "party": "RSP",
-    "photoUrl": "9_cdho1y.jpg"
+    "photoUrl": "https://res.cloudinary.com/di6uilvxj/image/upload/v1771244148/9_cdho1y.jpg"
   },
   {
     "id": "10",
@@ -96,7 +96,7 @@
     "district": "Siraha",
     "constituency": "Siraha-1",
     "party": "RSP",
-    "photoUrl": "https://endearing-fenglisu-55bec5.netlify.app/RSP/11.jpg"
+    "photoUrl": "https://res.cloudinary.com/di6uilvxj/image/upload/v1771244146/11_h5vem4.jpg"
   },
   {
     "id": "12",
