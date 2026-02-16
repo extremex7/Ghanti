@@ -1,7 +1,11 @@
-// utils/fetchCandidates.ts
+import candidateData from '@/assets/data/candidates.json';
 
-// 1. Define the Candidate Type
-export type Candidate = {
+// 🔴 REPLACE THIS with your actual link from Cloudinary or Netlify
+// Example Cloudinary: 'https://res.cloudinary.com/your-name/image/upload/v123456/candidates/'
+// Example Netlify:    'https://your-site-name.netlify.app/candidates/'
+const ASSET_BASE_URL = 'https://res.cloudinary.com/demo/image/upload/candidates/';
+
+export interface Candidate {
   id: string;
   name: string;
   province: string;
@@ -9,38 +13,24 @@ export type Candidate = {
   constituency: string;
   party: string;
   photoUrl: string;
-};
+}
 
-// 2. The URL to your "Raw" JSON on GitHub
-// Note: We use the 'main' branch. If your branch is 'master', change 'main' to 'master'.
-const REMOTE_URL = 'https://raw.githubusercontent.com/extremex7/Ghanti/refs/heads/master/assets/data/candidates.json';
+export const fetchCandidates = async (lang: 'en' | 'ne' = 'en'): Promise<Candidate[]> => {
+  return candidateData.map((item: any) => {
+    // Helper to get language (fallback to English if Nepali is missing)
+    const getName = (field: any) => field?.[lang] || field?.['en'] || field || "Unknown";
 
-// 3. The Fetch Function
-export const fetchCandidates = async (): Promise<Candidate[]> => {
-  try {
-    console.log('Fetching candidates from GitHub...');
-    
-    // We add '?t=' + Date.now() to the URL.
-    // This forces the app to download the *fresh* file instead of using a cached old version.
-    const response = await fetch(`${REMOTE_URL}?t=${Date.now()}`, {
-      headers: {
-        'Cache-Control': 'no-cache'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log(`Successfully fetched ${data.length} candidates.`);
-    return data;
-
-  } catch (error) {
-    console.error('Failed to fetch remote candidates:', error);
-    
-    // Fallback: If internet fails, you could return an empty list 
-    // or import a local backup file here if you kept one.
-    return [];
-  }
+    return {
+      id: item.id,
+      name: getName(item.name),
+      province: getName(item.province),
+      district: getName(item.district),
+      constituency: getName(item.constituency),
+      party: getName(item.party),
+      
+      // ✅ MAGIC LINE: Constructs the URL automatically
+      // It looks for "106.png" or "106.jpg" at your host
+      photoUrl: `${ASSET_BASE_URL}${item.id}.png`, 
+    };
+  });
 };

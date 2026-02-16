@@ -1,9 +1,10 @@
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next'; // ✅ NEW IMPORT
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../context/ThemeContext';
 import { Candidate, fetchCandidates } from '../../utils/fetchCandidates';
