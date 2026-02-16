@@ -1,5 +1,5 @@
 // app/(tabs)/candidates/FilterModal.tsx
-import { Ionicons } from '@expo/vector-icons'; // Assuming you are using Expo
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Animated,
@@ -10,22 +10,18 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import { Candidate } from '../../utils/fetchCandidates';
+import { Candidate } from '../utils/fetchCandidates';
 
-// Import Data
+// Import Data (Your static JSON files)
 // @ts-ignore
-import provincesData from '../../assets/data/provinces.json';
+import provincesData from '../assets/data/provinces.json';
 // @ts-ignore
-import districtsData from '../../assets/data/districts.json';
-// @ts-ignore
-import localLevelsData from '../../assets/data/local_levels.json';
+import districtsData from '../assets/data/districts.json';
 
-// Types for your JSON data
 type Province = { province_id: number; name: string; nepali_name: string };
 type District = { district_id: number; name: string; province_id: number; nepali_name: string };
-type LocalLevel = { municipality_id: number; name: string; district_id: number; nepali_name: string };
 
 type FilterModalProps = {
   visible: boolean;
@@ -41,16 +37,15 @@ export default function FilterModal({
   onFilter,
 }: FilterModalProps) {
   const [search, setSearch] = useState('');
-  const [filterStep, setFilterStep] = useState<'main' | 'province' | 'district' | 'local'>('main');
+  const [filterStep, setFilterStep] = useState<'main' | 'province' | 'district' | 'constituency'>('main');
 
-  // Selected Data States
+  // Selected Data
   const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
-  const [selectedLocal, setSelectedLocal] = useState<LocalLevel | null>(null);
+  const [selectedConstituency, setSelectedConstituency] = useState<string | null>(null);
 
   const slideAnim = useState(new Animated.Value(0))[0];
 
-  // Animation Effect
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: visible ? 1 : 0,
@@ -60,29 +55,35 @@ export default function FilterModal({
     }).start();
   }, [visible]);
 
-  // --- Derived Data for Cascading Lists ---
+  // --- Derived Data ---
   
-  // 1. Get Districts for selected Province
+  // 1. Districts for Province
   const filteredDistricts = useMemo(() => {
     if (!selectedProvince) return [];
     return (districtsData as District[]).filter(d => d.province_id === selectedProvince.province_id);
   }, [selectedProvince]);
 
-  // 2. Get Local Levels for selected District
-  const filteredLocalLevels = useMemo(() => {
+  // 2. Constituencies for District (Dynamic!)
+  // Instead of a static list, we look at candidates in the selected district 
+  // and see which constituencies they are running in.
+  const availableConstituencies = useMemo(() => {
     if (!selectedDistrict) return [];
-    return (localLevelsData as LocalLevel[]).filter(l => l.district_id === selectedDistrict.district_id);
-  }, [selectedDistrict]);
+    
+    // Find all candidates in this district
+    const candidatesInDistrict = candidates.filter(c => 
+      c.district === selectedDistrict.name || c.district === selectedDistrict.nepali_name
+    );
 
+    // Extract unique constituencies (e.g., "Kathmandu-1", "Kathmandu-4")
+    const constituencies = Array.from(new Set(candidatesInDistrict.map(c => c.constituency))).sort();
+    return constituencies;
+  }, [selectedDistrict, candidates]);
 
-  // --- Main Filter Logic ---
+  // --- Filter Logic ---
   useEffect(() => {
     const filtered = candidates.filter((c) => {
-      // Name Search
       const matchesName = search ? c.name.toLowerCase().includes(search.toLowerCase()) : true;
 
-      // Location Filters
-      // Note: We check against both English and Nepali names just in case your candidate data varies
       const matchesProvince = selectedProvince 
         ? (c.province === selectedProvince.name || c.province === selectedProvince.nepali_name) 
         : true;
@@ -91,17 +92,15 @@ export default function FilterModal({
         ? (c.district === selectedDistrict.name || c.district === selectedDistrict.nepali_name) 
         : true;
 
-      // Assuming your Candidate object has a 'municipality' or 'city' field
-      // Adjust 'c.municipality' to match your actual API data field
-      const matchesLocal = selectedLocal
-        ? (c.municipality === selectedLocal.name || c.municipality === selectedLocal.nepali_name)
+      const matchesConstituency = selectedConstituency
+        ? c.constituency === selectedConstituency
         : true;
 
-      return matchesName && matchesProvince && matchesDistrict && matchesLocal;
+      return matchesName && matchesProvince && matchesDistrict && matchesConstituency;
     });
     
     onFilter(filtered);
-  }, [search, selectedProvince, selectedDistrict, selectedLocal, candidates, onFilter]);
+  }, [search, selectedProvince, selectedDistrict, selectedConstituency, candidates, onFilter]);
 
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
@@ -112,58 +111,41 @@ export default function FilterModal({
     setSearch('');
     setSelectedProvince(null);
     setSelectedDistrict(null);
-    setSelectedLocal(null);
+    setSelectedConstituency(null);
     setFilterStep('main');
   };
 
   const handleSelectProvince = (p: Province) => {
     setSelectedProvince(p);
-    setSelectedDistrict(null); // Reset child
-    setSelectedLocal(null);    // Reset grandchild
-    setFilterStep('district'); // Auto-advance
+    setSelectedDistrict(null);
+    setSelectedConstituency(null);
+    setFilterStep('district');
   };
 
   const handleSelectDistrict = (d: District) => {
     setSelectedDistrict(d);
-    setSelectedLocal(null);    // Reset child
-    setFilterStep('local');    // Auto-advance
+    setSelectedConstituency(null);
+    setFilterStep('constituency');
   };
 
-  const handleSelectLocal = (l: LocalLevel) => {
-    setSelectedLocal(l);
-    setFilterStep('main');     // Return to main
+  const handleSelectConstituency = (c: string) => {
+    setSelectedConstituency(c);
+    setFilterStep('main');
   };
 
-  // Helper to render lists consistently
-  const renderList = <T extends Province | District | LocalLevel>(
+  // Helper List Render
+  const renderList = <T extends any>(
     data: T[],
-    onSelect: (item: T) => void,
-    selectedId?: number,
-    idKey: keyof T = 'province_id' as any
+    renderItem: (item: T) => React.ReactNode,
+    keyExtractor: (item: T) => string
   ) => (
     <ScrollView style={styles.listContainer}>
       {data.map((item) => (
-        <TouchableOpacity
-          key={String(item[idKey])}
-          style={[
-            styles.listItem,
-            // @ts-ignore
-            selectedId === item[idKey] && styles.listItemSelected
-          ]}
-          onPress={() => onSelect(item)}
-        >
-          <Text style={[
-            styles.listItemText,
-             // @ts-ignore
-            selectedId === item[idKey] && styles.listItemTextSelected
-          ]}>
-            {item.name} <Text style={styles.nepaliText}>({item.nepali_name})</Text>
-          </Text>
-          { // @ts-ignore
-            selectedId === item[idKey] && <Ionicons name="checkmark" size={20} color="#0A3D91" />
-          }
-        </TouchableOpacity>
+        <React.Fragment key={keyExtractor(item)}>
+          {renderItem(item)}
+        </React.Fragment>
       ))}
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 
@@ -195,27 +177,21 @@ export default function FilterModal({
                 value={search}
                 onChangeText={setSearch}
                 style={styles.searchInput}
-                placeholderTextColor="#999"
               />
 
               <Text style={styles.sectionLabel}>Location</Text>
               
               <View style={styles.filterGroup}>
-                {/* Province Selector */}
-                <TouchableOpacity 
-                  style={styles.filterRow} 
-                  onPress={() => setFilterStep('province')}
-                >
+                <TouchableOpacity style={styles.filterRow} onPress={() => setFilterStep('province')}>
                   <Text style={styles.filterLabel}>Province</Text>
                   <View style={styles.filterValueContainer}>
                     <Text style={selectedProvince ? styles.filterValue : styles.placeholder}>
-                      {selectedProvince?.name || 'All Provinces'}
+                      {selectedProvince?.name || 'All'}
                     </Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </View>
                 </TouchableOpacity>
 
-                {/* District Selector */}
                 <TouchableOpacity 
                   style={[styles.filterRow, !selectedProvince && styles.disabledRow]} 
                   onPress={() => selectedProvince && setFilterStep('district')}
@@ -224,22 +200,21 @@ export default function FilterModal({
                   <Text style={styles.filterLabel}>District</Text>
                   <View style={styles.filterValueContainer}>
                     <Text style={selectedDistrict ? styles.filterValue : styles.placeholder}>
-                      {selectedDistrict?.name || 'All Districts'}
+                      {selectedDistrict?.name || 'All'}
                     </Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </View>
                 </TouchableOpacity>
 
-                {/* Local Level Selector */}
                 <TouchableOpacity 
                   style={[styles.filterRow, !selectedDistrict && styles.disabledRow, { borderBottomWidth: 0 }]} 
-                  onPress={() => selectedDistrict && setFilterStep('local')}
+                  onPress={() => selectedDistrict && setFilterStep('constituency')}
                   disabled={!selectedDistrict}
                 >
-                  <Text style={styles.filterLabel}>Municipality</Text>
+                  <Text style={styles.filterLabel}>Constituency</Text>
                   <View style={styles.filterValueContainer}>
-                    <Text style={selectedLocal ? styles.filterValue : styles.placeholder}>
-                      {selectedLocal?.name || 'All Municipalities'}
+                    <Text style={selectedConstituency ? styles.filterValue : styles.placeholder}>
+                      {selectedConstituency || 'All'}
                     </Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </View>
@@ -257,25 +232,49 @@ export default function FilterModal({
             </View>
           )}
 
-          {/* SUB-MENUS */}
-          {filterStep === 'province' && (
-            <>
-              <Text style={styles.stepTitle}>Select Province</Text>
-              {renderList(provincesData, handleSelectProvince, selectedProvince?.province_id, 'province_id')}
-            </>
+          {/* PROVINCE LIST */}
+          {filterStep === 'province' && renderList(
+            provincesData,
+            (p) => (
+              <TouchableOpacity style={styles.listItem} onPress={() => handleSelectProvince(p)}>
+                <Text style={styles.listItemText}>{p.name} <Text style={styles.nepaliText}>({p.nepali_name})</Text></Text>
+                {selectedProvince?.province_id === p.province_id && <Ionicons name="checkmark" size={20} color="#0A3D91" />}
+              </TouchableOpacity>
+            ),
+            (p) => p.province_id.toString()
           )}
 
-          {filterStep === 'district' && (
-            <>
-              <Text style={styles.stepTitle}>Select District in {selectedProvince?.name}</Text>
-              {renderList(filteredDistricts, handleSelectDistrict, selectedDistrict?.district_id, 'district_id')}
-            </>
+          {/* DISTRICT LIST */}
+          {filterStep === 'district' && renderList(
+            filteredDistricts,
+            (d) => (
+              <TouchableOpacity style={styles.listItem} onPress={() => handleSelectDistrict(d)}>
+                <Text style={styles.listItemText}>{d.name} <Text style={styles.nepaliText}>({d.nepali_name})</Text></Text>
+                {selectedDistrict?.district_id === d.district_id && <Ionicons name="checkmark" size={20} color="#0A3D91" />}
+              </TouchableOpacity>
+            ),
+            (d) => d.district_id.toString()
           )}
 
-          {filterStep === 'local' && (
+          {/* CONSTITUENCY LIST */}
+          {filterStep === 'constituency' && (
             <>
-              <Text style={styles.stepTitle}>Select Municipality in {selectedDistrict?.name}</Text>
-              {renderList(filteredLocalLevels, handleSelectLocal, selectedLocal?.municipality_id, 'municipality_id')}
+              {availableConstituencies.length === 0 ? (
+                <Text style={{ textAlign: 'center', marginTop: 20, color: '#666' }}>
+                  No candidates found in {selectedDistrict?.name} yet.
+                </Text>
+              ) : (
+                renderList(
+                  availableConstituencies,
+                  (c) => (
+                    <TouchableOpacity style={styles.listItem} onPress={() => handleSelectConstituency(c)}>
+                      <Text style={styles.listItemText}>{c}</Text>
+                      {selectedConstituency === c && <Ionicons name="checkmark" size={20} color="#0A3D91" />}
+                    </TouchableOpacity>
+                  ),
+                  (c) => c
+                )
+              )}
             </>
           )}
 
@@ -286,6 +285,7 @@ export default function FilterModal({
 }
 
 const styles = StyleSheet.create({
+  // ... (Keep your existing styles, they are good)
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -295,13 +295,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '85%',
+    height: '80%',
     padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   header: {
     flexDirection: 'row',
@@ -312,7 +307,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1a1a1a',
   },
   backButton: {
     flexDirection: 'row',
@@ -320,7 +314,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: '#333',
     marginLeft: 5,
   },
   searchInput: {
@@ -329,8 +322,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 16,
     marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#eee',
   },
   sectionLabel: {
     fontSize: 14,
@@ -338,7 +329,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
     textTransform: 'uppercase',
-    letterSpacing: 1,
   },
   filterGroup: {
     backgroundColor: 'white',
@@ -361,7 +351,6 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
   },
   filterValueContainer: {
@@ -371,8 +360,8 @@ const styles = StyleSheet.create({
   filterValue: {
     fontSize: 16,
     color: '#0A3D91',
-    marginRight: 8,
     fontWeight: '600',
+    marginRight: 8,
   },
   placeholder: {
     fontSize: 16,
@@ -382,12 +371,6 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  stepTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 15,
-  },
   listItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -396,16 +379,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  listItemSelected: {
-    backgroundColor: '#f8faff',
-  },
   listItemText: {
     fontSize: 16,
     color: '#333',
-  },
-  listItemTextSelected: {
-    color: '#0A3D91',
-    fontWeight: '700',
   },
   nepaliText: {
     color: '#888',
@@ -425,9 +401,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   clearButtonText: {
-    color: '#666',
     fontWeight: '600',
-    fontSize: 16,
+    color: '#666',
   },
   applyButton: {
     flex: 2,
@@ -439,6 +414,5 @@ const styles = StyleSheet.create({
   applyButtonText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 16,
   },
 });
