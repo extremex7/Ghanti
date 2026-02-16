@@ -1,9 +1,29 @@
 {
+  "nav": {
+    "home": "Home",
+    "candidates": "Candidates",
+    "manifesto": "Manifesto"
+  },
   "home": {
-    "welcome": "Welcome to Mission 2084",
-    "bell_hint": "Shake to Ring"
+    "brandTitle": "RASTRIYA SWATANTRA PARTY",
+    "mission": "MISSION 2084",
+    "ringButton": "RING THE BELL",
+    "shakeHint": "Or Shake your phone to ring!",
+    "count_label": "YOUR CONTRIBUTION",
+    "count_value": "{{count}} Rings"
   },
   "candidates": {
-    "title": "Candidates"
+    "title": "CANDIDATES",
+    "badge": "RSP"
+  },
+  "manifesto": {
+    "title": "MANIFESTO",
+    "commitment": "RSP COMMITMENT",
+    "vision": "Part of our national vision for 2084."
+  },
+  "notFound": {
+    "title": "Oops!",
+    "message": "This screen doesn't exist.",
+    "button": "Go to Home"
   }
 }

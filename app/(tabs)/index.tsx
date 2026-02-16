@@ -19,54 +19,78 @@ export default function HomeScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const player = useAudioPlayer(require('../../assets/sounds/bell.mp3'));
   
-  // 🆕 Ref to block shaking immediately after stopping
-  const lastStopRef = useRef<number>(0); 
+  // 🛡️ REFS for instant state tracking (Prevents "Restart" bugs)
+  const isPlayingRef = useRef(false); 
+  const lastActionTimeRef = useRef(0);
+  const playStartTimeRef = useRef(0);
 
+  // 📊 STATE
   const [isRallying, setIsRallying] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [ringCount, setRingCount] = useState(0); // 🆕 Ring Counter
 
-  // 1. Language Toggle
+  // 1. Load Saved Ring Count on Startup
+  useEffect(() => {
+    loadCount();
+  }, []);
+
+  const loadCount = async () => {
+    const saved = await AsyncStorage.getItem('user-ring-count');
+    if (saved) setRingCount(parseInt(saved, 10));
+  };
+
+  const incrementCount = async () => {
+    const newCount = ringCount + 1;
+    setRingCount(newCount);
+    await AsyncStorage.setItem('user-ring-count', newCount.toString());
+  };
+
+  // 2. Language Toggle
   const toggleLanguage = () => {
     const newLang = i18n.language === 'en' ? 'ne' : 'en';
     i18n.changeLanguage(newLang);
     AsyncStorage.setItem('user-language', newLang);
   };
 
-  // 2. Shake Listener (High Threshold + Cooldown Fix)
+  // 3. Shake Listener
   useEffect(() => {
     Accelerometer.setUpdateInterval(100);
 
     const sub = Accelerometer.addListener(({ x, y, z }) => {
-      const force = Math.abs(x) + Math.abs(y) + Math.abs(z);
       const now = Date.now();
+      // 🛡️ Block shakes if we just pressed a button (within 500ms)
+      if (now - lastActionTimeRef.current < 500) return;
 
-      // 🛑 COOLDOWN CHECK: Ignore shakes if we pressed stop < 1 second ago
-      if (now - lastStopRef.current < 1000) return;
+      const force = Math.abs(x) + Math.abs(y) + Math.abs(z);
       
-      // 4.0 is a good balance for "Hard Shake"
-      if (force > 4.0) { 
-        if (!isRallying && !isPlaying) {
+      // Force > 3.5 for a deliberate shake
+      if (force > 3.5) { 
+        // 🛡️ Check the REF, not the state (React state can be slow)
+        if (!isRallying && !isPlayingRef.current) {
           triggerRing();
         }
       }
     });
     
     return () => sub.remove();
-  }, [isRallying, isPlaying]);
+  }, [isRallying]); 
 
-  // 3. Audio Listener (Auto-reset when sound ends naturaly)
+  // 4. Audio Listener
   useEffect(() => {
     const sub = player.addListener('playbackStatusUpdate', (status) => {
-      // Only reset if it finished playing naturally (not paused/stopped by us)
+      const now = Date.now();
+      
+      // 🛡️ IGNORE "Finished" events if playback started < 500ms ago
+      if (now - playStartTimeRef.current < 500) return;
+
       if (status.didJustFinish) {
-        setIsPlaying(false);
-        scaleAnim.setValue(1);
+        handleStopState();
       }
     });
     return () => sub.remove();
   }, [player]);
 
-  // 4. Rally Animation
+  // 5. Rally Animation Loop
   useEffect(() => {
     let loopAnim: Animated.CompositeAnimation;
     if (isRallying) {
@@ -86,11 +110,24 @@ export default function HomeScreen() {
     return () => { if (loopAnim) loopAnim.stop(); };
   }, [isRallying, isPlaying]);
 
-  // 🟢 Helper: Start Ringing
+  // ✅ CORE FUNCTIONS
+  const handleStopState = () => {
+    setIsPlaying(false);
+    isPlayingRef.current = false; // Sync Ref
+    scaleAnim.setValue(1);
+  };
+
   const triggerRing = () => {
+    const now = Date.now();
+    lastActionTimeRef.current = now; // Block shakes
+    playStartTimeRef.current = now;  // Block premature "finish" events
+
     Vibration.vibrate(100);
     setIsPlaying(true);
+    isPlayingRef.current = true; // Sync Ref
     
+    incrementCount(); // 🆕 Add to Count
+
     // Pulse Animation
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 1.25, duration: 80, useNativeDriver: true }),
@@ -101,53 +138,49 @@ export default function HomeScreen() {
     player.play();
   };
 
-  // 🛑 Helper: Stop Ringing
   const triggerStop = () => {
+    lastActionTimeRef.current = Date.now(); // Block shakes
     player.pause();
     player.seekTo(0);
-    setIsPlaying(false);
-    scaleAnim.setValue(1);
-    
-    // 🆕 Set cooldown timestamp so shake listener ignores movement for 1s
-    lastStopRef.current = Date.now();
+    handleStopState();
   };
 
-  // 🔔 Main Button Handler
+  // 🔔 Button Handler
   const handleMainButtonPress = () => {
     if (isRallying) {
-      toggleRally(); // Stop Rally
+      toggleRally(); 
       return;
     }
 
-    if (isPlaying) {
-      triggerStop(); // STOP
+    if (isPlayingRef.current) {
+      triggerStop();
     } else {
-      triggerRing(); // PLAY
+      triggerRing();
     }
   };
 
   const toggleRally = () => {
+    lastActionTimeRef.current = Date.now();
     if (isRallying) {
-      // STOP RALLY
       player.pause();
       player.loop = false;
       setIsRallying(false);
-      setIsPlaying(false);
-      lastStopRef.current = Date.now(); // Add cooldown here too
+      handleStopState();
     } else {
-      // START RALLY
       player.loop = true;
       player.play();
       setIsRallying(true);
       setIsPlaying(true);
+      isPlayingRef.current = true;
+      incrementCount(); // 🆕 Count Rally start as 1 ring
     }
   };
 
-  // 📝 Dynamic Button Text
+  // UI Texts
   const getMainButtonText = () => {
     if (isRallying) return i18n.language === 'en' ? '🛑 STOP RALLY' : '🛑 रोक्नुहोस्';
     if (isPlaying) return i18n.language === 'en' ? '🛑 STOP' : '🛑 रोक्नुहोस्';
-    return t('home.ringButton'); // "RING THE BELL"
+    return t('home.ringButton');
   };
 
   const rallyText = i18n.language === 'en' ? '📢 RALLY MODE' : '📢 र्‍याली मोड';
@@ -155,7 +188,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       
-      {/* HEADER */}
       <View style={styles.headerRow}>
         <TouchableOpacity style={styles.iconBtn} onPress={toggleLanguage}>
           <Text style={{ fontSize: 22 }}>{i18n.language === 'en' ? '🇳🇵' : '🇺🇸'}</Text>
@@ -171,10 +203,9 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* CONTENT */}
       <View style={styles.content}>
         
-        {/* BELL ICON - NOW CLICKABLE TO STOP TOO */}
+        {/* BELL ICON */}
         <TouchableOpacity 
           activeOpacity={0.8} 
           onPress={handleMainButtonPress} 
@@ -191,10 +222,14 @@ export default function HomeScreen() {
           </Animated.View>
         </TouchableOpacity>
 
-        {/* COUNTDOWN */}
+        {/* 🆕 CONTRIBUTION COUNTER */}
+        <View style={styles.counterContainer}>
+            <Text style={[styles.counterLabel, { color: theme.text }]}>{t('home.count_label')}</Text>
+            <Text style={styles.counterValue}>{t('home.count_value', { count: ringCount })}</Text>
+        </View>
+
         <Countdown />
 
-        {/* BUTTONS */}
         <View style={styles.buttonContainer}>
           
           {/* Main Ring/Stop Button */}
@@ -257,24 +292,43 @@ const styles = StyleSheet.create({
   brandTitle: { fontSize: 24, fontWeight: '900', marginBottom: 5, textAlign: 'center' },
   missionText: { fontSize: 14, fontWeight: 'bold', letterSpacing: 4, opacity: 0.9 },
   bellOuter: {
-    width: 220, 
-    height: 220,
-    borderRadius: 110,
+    width: 200, // Slightly smaller to fit counter
+    height: 200,
+    borderRadius: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
   },
   bellInner: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 20,
   },
-  bellImage: { width: 100, height: 100, resizeMode: 'contain' },
+  bellImage: { width: 90, height: 90, resizeMode: 'contain' },
+  
+  // 🆕 Counter Styles
+  counterContainer: {
+    alignItems: 'center',
+    marginTop: 5,
+    marginBottom: 5,
+  },
+  counterLabel: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    opacity: 0.6,
+  },
+  counterValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F36E21', 
+  },
+
   buttonContainer: { width: '100%', alignItems: 'center', gap: 12 },
   ringButton: {
     paddingHorizontal: 40,

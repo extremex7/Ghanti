@@ -1,21 +1,23 @@
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next'; // ✅ NEW IMPORT
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import manifestoData from '../../assets/data/manifesto.json';
-import { useLanguage } from '../../context/LanguageContext'; // Import
 import { useAppTheme } from '../../context/ThemeContext';
 
 export default function ManifestoScreen() {
   const { colorScheme } = useAppTheme();
-  const { t } = useLanguage(); // Get translations
+  const { t } = useTranslation(); // ✅ NEW HOOK
   const theme = Colors[colorScheme];
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}><Text style={[styles.headerTitle, { color: theme.text }]}>{t.manifestoTitle}</Text></View>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('manifesto.title')}</Text>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {manifestoData.map((item) => {
           const isExpanded = expandedId === item.id;
@@ -31,8 +33,8 @@ export default function ManifestoScreen() {
                 <View style={styles.descriptionContainer}>
                   <Text style={styles.descriptionText}>{item.description}</Text>
                   <View style={styles.divider} />
-                  <Text style={styles.supportLabel}>{t.commitment}</Text>
-                  <Text style={{ fontStyle: 'italic', color: '#666' }}>{t.vision}</Text>
+                  <Text style={styles.supportLabel}>{t('manifesto.commitment')}</Text>
+                  <Text style={{ fontStyle: 'italic', color: '#666' }}>{t('manifesto.vision')}</Text>
                 </View>
               )}
             </Pressable>
@@ -42,7 +44,7 @@ export default function ManifestoScreen() {
     </SafeAreaView>
   );
 }
-// Styles remain the same...
+// ... Styles remain the same
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 20, alignItems: 'center' },

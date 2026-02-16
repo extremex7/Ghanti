@@ -1,16 +1,16 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { useTranslation } from 'react-i18next'; // ✅ NEW IMPORT
 import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/Colors';
-import { useLanguage } from '../../context/LanguageContext';
 import { useAppTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
   const { colorScheme } = useAppTheme();
-  const { t } = useLanguage(); 
+  const { t } = useTranslation(); // ✅ NEW HOOK
   const theme = Colors[colorScheme];
 
   return (
@@ -33,7 +33,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: t.navHome,
+          title: t('nav.home'), // ✅ UPDATED KEY
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
@@ -41,7 +41,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="candidates"
         options={{
-          title: t.navCandidates,
+          title: t('nav.candidates'), // ✅ UPDATED KEY
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.2.fill" color={color} />,
         }}
       />
@@ -49,12 +49,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="manifesto"
         options={{
-          title: t.navManifesto,
+          title: t('nav.manifesto'), // ✅ UPDATED KEY
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
         }}
       />
-
-      {/* 🗑️ DELETED the "explore" tab block here to fix the warning */}
     </Tabs>
   );
 }
